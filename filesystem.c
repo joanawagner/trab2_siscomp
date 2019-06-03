@@ -62,7 +62,7 @@ int fs_create(char* input_file, char* simul_file){
 		return ret;
 	}
 
-	/* Write the code to load a new file to the simulated filesystem. */
+	
 	
 	ds_stop();
 	
