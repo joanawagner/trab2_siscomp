@@ -62,7 +62,25 @@ int fs_create(char* input_file, char* simul_file){
 		return ret;
 	}
 
+	/* Write the code to load a new file to the simulated filesystem. */
+
+	//Abrir e copiar o arquivo original
+	FILE *arquivo = fopen(input_file, "r");
+
+	if(arquivo != NULL){
+
+		fseek(arquivo, 0, SEEK_END); //move o ponteiro do arquivo para o final dele
+		int tamanhoArq = ftell(arqServidor); //pegue o tamanho do arquivo
+		fseek(arquivo, 0, SEEK_SET); //move o ponteiro do arquivo de volta para o inicio
+
+
+	struct file_dir_entry arquivo; //cria o arquivo
+	//pegar o nome do arquivo
 	
+	arquivo.dir = 0;
+	arquivo.name = nome;
+	arquivo.size_bytes = tamanhoArq;
+	}
 	
 	ds_stop();
 	
@@ -131,11 +149,17 @@ int fs_ls(char *dir_path){
  */
 int fs_mkdir(char* directory_path){
 	int ret;
+	struct table_directory dir;	
+		
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
 	
 	/* Write the code to create a new directory. */
+
+	
+
+
 	
 	ds_stop();
 	
