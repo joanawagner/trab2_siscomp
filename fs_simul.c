@@ -47,12 +47,12 @@ int main(int argc, char **argv){
 		
 		//Criando diretório
 		if(!strcmp(argv[1], "-mkdir")){
-			fs_create(argv[2]);
+			fs_mkdir(argv[2]);
 		}
 		
 		//Deleta diretório
 		if(!strcmp(argv[1], "-rmdir")){
-			fs_create(argv[2]);
+			fs_rmdir(argv[2]);
 		}
 		
 	}
