@@ -65,8 +65,9 @@ int fs_create(char* input_file, char* simul_file){
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
-
-	/* Write the code to load a new file to the simulated filesystem. */
+	
+	ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);	
+	ds_read_sector(0, &sector0,SECTOR_SIZE);	
 
 	//Abrir o arquivo original
 	FILE *arquivo = fopen(input_file, "rb");
@@ -83,16 +84,14 @@ int fs_create(char* input_file, char* simul_file){
 		return 1;
 	}
 
-	
 	char *caminho_simul = strdup(dirname(simul_file));
 	char *limitador = "/";
 	char *str1 = malloc(sizeof(caminho_simul));
 	strcpy(str1, caminho_simul);	
-	char *str2 = strtok(str1, limitador);
-	
+	char *str2 = strtok(str1, "/");
+
 	struct table_directory dir_atual;
 	struct file_dir_entry *entrada;
-	//printf("aqui");
 	int dir_existe = 0;
 	int arquivo_root = 0;
 	entrada = root_dir.entries;
@@ -101,24 +100,28 @@ int fs_create(char* input_file, char* simul_file){
 	if(strcmp(caminho_simul, limitador) == 0){
 		arquivo_root = 1;
 		ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
+		
 	} 
+	
 	if(arquivo_root == 0) {
 		while(str2 != NULL){
-			dir_existe = 0;
-			for(i = 0; i < 16; i++){		
+			dir_existe = 0;	
+			for(i = 0; i < 16; i++){					
+				//printf("%s\n", entrada[i].name);				
 				if(strcmp(str2, entrada[i].name) == 0 && entrada[i].dir == 1){
 					sector_dir = entrada[i].sector_start;
 					entrada = dir_atual.entries;
-					dir_existe = 1;				
+					dir_existe = 1;	
+							
 				}
-			}		
-			str2 = strtok(NULL, limitador);
-			if(dir_existe == 0){
-				printf("Diretório de destino não encontrado!\n");
-				return 1;
 			}
+			ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+			str2 = strtok(NULL, limitador);
 		}
-		ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+		if(dir_existe == 0){
+			printf("Diretório de destino não encontrado!\n");
+			return 1;
+		}
 	}
 	
 	//Determina se há um arquivo com o mesmo nome		
@@ -144,7 +147,7 @@ int fs_create(char* input_file, char* simul_file){
 	strcpy(entrada[i].name, nome);
 	entrada[i].sector_start = sector0.free_sectors_list;
 	entrada[i].size_bytes = tamanho_arq; 
-	
+
 	if(arquivo_root == 1){
 		root_dir.entries[i] = entrada[i];
 		ds_write_sector(1, (void*)&root_dir, SECTOR_SIZE);
@@ -155,38 +158,31 @@ int fs_create(char* input_file, char* simul_file){
 	
 	//Inicia processo de escrita do arquivo nos setores vazios
 	memset(&sector, sector0.free_sectors_list, sizeof(sector));
-	int sector_number = sector0.free_sectors_list;
-
+	int sector_prox = entrada[i].sector_start, aux;
 	memset(sector.data, 0, sizeof(sector.data));
-	
-	int data_amount = fread(sector.data, 1, 508, arquivo);
+		
 	int valor = tamanho_arq;
 
-
 	while(valor > 0){	
-		if(data_amount == 508){
-			sector.next_sector = sector_number + 1;
-		} else{
-			sector.next_sector = 0;
-			sector0.free_sectors_list = sector_number + 1;
-			ds_write_sector(0, (void*)&sector0, SECTOR_SIZE);
-		}
-		
-		ds_write_sector(sector_number, (void*)&sector, SECTOR_SIZE);
-		sector_number++;
-		valor = valor - 508;
+		ds_read_sector(sector_prox, &sector,SECTOR_SIZE);		//lê o setor livre
+		int data_amount = fread(sector.data, 1, 508, arquivo);		//lê o arquivo de entrada em porções de 508 bytes
+		ds_write_sector(sector_prox, (void*)&sector, SECTOR_SIZE);	//escreve essa porção no setor disponivél
+
+		aux = sector_prox;						//salva qual o próximo setor
+		sector_prox = sector.next_sector;				//seta qual o próximo setor disponível
+		valor = valor - data_amount;					//subtrai a quantidade de data restante do tamanho original do arquivo
 	}
 	
-	//while(data_amount == 508){
-		ds_write_sector(1, (void*)&root_dir, SECTOR_SIZE);
-		ds_write_sector(0, (void*)&sector0, SECTOR_SIZE);
-	//}
-	
+	sector0.free_sectors_list = sector_prox;				//seta o próximo setor livre
+	sector.next_sector = 0;							//defini final dos setores do arquivo	
+	ds_write_sector(aux, (void*)&sector, SECTOR_SIZE);			
+	ds_write_sector(1, (void*)&root_dir, SECTOR_SIZE);
+	ds_write_sector(0, (void*)&sector0, SECTOR_SIZE);
 	fclose(arquivo); 
 
 	ds_stop();
 	
-	return 0;
+return 0;
 }
 
 /**
@@ -202,7 +198,6 @@ int fs_read(char* output_file, char* simul_file){
 	}
 	
 	struct table_directory root_dir;
-	//struct sector_0 sector0;
 	struct sector_data sector;
 	
 	ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
@@ -227,25 +222,29 @@ int fs_read(char* output_file, char* simul_file){
 	//Procura diretório no sistema de arquivo simulado
 	if(strcmp(caminho_simul, limitador) == 0){
 		arquivo_root = 1;
-		//ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
+		ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
+		
 	} 
+	
 	if(arquivo_root == 0) {
 		while(str2 != NULL){
-			dir_existe = 0;
-			for(i = 0; i < 16; i++){		
+			dir_existe = 0;	
+			for(i = 0; i < 16; i++){					
+				//printf("%s\n", entrada[i].name);				
 				if(strcmp(str2, entrada[i].name) == 0 && entrada[i].dir == 1){
 					sector_dir = entrada[i].sector_start;
 					entrada = dir_atual.entries;
-					dir_existe = 1;				
+					dir_existe = 1;	
+							
 				}
-			}		
-			str2 = strtok(NULL, limitador);
-			if(dir_existe == 0){
-				printf("Diretório de destino não encontrado!\n");
-				return 1;
 			}
+			ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+			str2 = strtok(NULL, limitador);
 		}
-		//ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+		if(dir_existe == 0){
+			printf("Diretório de destino não encontrado!\n");
+			return 1;
+		}
 	}
 
 	for(i = 0; i < 16; i++){
@@ -259,23 +258,24 @@ int fs_read(char* output_file, char* simul_file){
 		}
 
 	}
-
-	int dados = entrada[i].size_bytes;
-	ds_read_sector(entrada[i].sector_start, (void*)&sector, SECTOR_SIZE);
 	
-	while(dados >= 0){
-		/*if(sobra_dados > 508){
-			dados = 508;
-			sobra_dados -= 508;
+	int sector_prox = entrada[i].sector_start;
+	int valor = entrada[i].size_bytes, data_amount;
+	
+	while(valor > 0){	
+		ds_read_sector(sector_prox, &sector,SECTOR_SIZE);	
+	
+		if(valor >= 508){
+			data_amount = 508;	
 		} else {
-			dados = sobra_dados;
-			sobra_dados = 0;
-		}*/
-		fwrite(&sector.data, entrada[i].size_bytes, 1, arquivo);
-		ds_read_sector(sector.next_sector, (void*)&sector, SECTOR_SIZE);
-		dados = dados - 1;
-		
+			data_amount = valor;
+		}
+		fwrite(&sector.data, 1, data_amount, arquivo);	
+		sector_prox = sector.next_sector;
+		valor = valor - data_amount;
 	}
+	
+	ds_write_sector(1, (void*)&root_dir, SECTOR_SIZE);
 
 	fclose(arquivo);
 	
@@ -300,8 +300,10 @@ int fs_del(char* simul_file){
 	struct sector_data sector;
 	
 	ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
+	ds_read_sector(0, &sector0,SECTOR_SIZE);
 
 	char *nome = strdup(basename(simul_file));
+	//printf();
 	char *caminho_simul = strdup(dirname(simul_file));
 	char *limitador = "/";
 	char *str1 = malloc(sizeof(caminho_simul));
@@ -319,24 +321,28 @@ int fs_del(char* simul_file){
 	if(strcmp(caminho_simul, limitador) == 0){
 		arquivo_root = 1;
 		ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
+		
 	} 
+	
 	if(arquivo_root == 0) {
 		while(str2 != NULL){
-			dir_existe = 0;
-			for(i = 0; i < 16; i++){		
+			dir_existe = 0;	
+			for(i = 0; i < 16; i++){					
+				//printf("%s\n", entrada[i].name);				
 				if(strcmp(str2, entrada[i].name) == 0 && entrada[i].dir == 1){
 					sector_dir = entrada[i].sector_start;
 					entrada = dir_atual.entries;
-					dir_existe = 1;				
+					dir_existe = 1;	
+							
 				}
-			}		
-			str2 = strtok(NULL, limitador);
-			if(dir_existe == 0){
-				printf("Diretório de destino não encontrado!\n");
-				return 1;
 			}
+			ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+			str2 = strtok(NULL, limitador);
 		}
-		ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+		if(dir_existe == 0){
+			printf("Diretório de destino não encontrado!\n");
+			return 1;
+		}
 	}
 
 	for(i = 0; i < 16; i++){
@@ -352,7 +358,7 @@ int fs_del(char* simul_file){
 	}
 
 	ds_read_sector(entrada[i].sector_start, (void*)&sector, SECTOR_SIZE);
-	while(sector.next_sector != 0){
+	if(sector.next_sector != 0){
 		sector_number = sector.next_sector;
 		ds_read_sector(sector.next_sector, (void*)&sector, SECTOR_SIZE);
 	}
@@ -385,6 +391,7 @@ int fs_del(char* simul_file){
  * @return 0 on success.
  */
 int fs_ls(char *dir_path){
+	
 	int ret, i, sector_dir;
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
@@ -412,24 +419,28 @@ int fs_ls(char *dir_path){
 	if(strcmp(caminho_simul, limitador) == 0){
 		arquivo_root = 1;
 		ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
+		
 	} 
+	
 	if(arquivo_root == 0) {
 		while(str2 != NULL){
-			dir_existe = 0;
-			for(i = 0; i < 16; i++){		
+			dir_existe = 0;	
+			for(i = 0; i < 16; i++){					
+				//printf("%s\n", entrada[i].name);				
 				if(strcmp(str2, entrada[i].name) == 0 && entrada[i].dir == 1){
 					sector_dir = entrada[i].sector_start;
 					entrada = dir_atual.entries;
-					dir_existe = 1;				
+					dir_existe = 1;	
+							
 				}
-			}		
-			str2 = strtok(NULL, limitador);
-			if(dir_existe == 0){
-				printf("Diretório de destino não encontrado!\n");
-				return 1;
 			}
+			ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+			str2 = strtok(NULL, limitador);
 		}
-		ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+		if(dir_existe == 0){
+			printf("Diretório de destino não encontrado!\n");
+			return 1;
+		}
 	}
 
 	printf("Lista de arquivos do diretório %s: \n", nome);
@@ -456,6 +467,7 @@ int fs_ls(char *dir_path){
 	ds_stop();
 	
 	return 0;
+
 }
 
 /**
@@ -467,10 +479,9 @@ int fs_mkdir(char* directory_path){
 	int ret, i, sector_dir, sector_number;
 	struct table_directory root_dir;
 	struct sector_0 sector0;
-	//struct sector_data sector;
+	struct sector_data sector;
 
-	
-	
+		
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
@@ -485,7 +496,8 @@ int fs_mkdir(char* directory_path){
 	strcpy(str1, caminho_simul);	
 	char *str2 = strtok(str1, limitador);
 	
-	struct table_directory dir_atual, novo_dir;
+	struct table_directory dir_atual, novo_dir; 
+	//struct table_directory *novo_dir = malloc(sizeof (struct table_directory));
 	struct file_dir_entry *entrada;
 	
 	int dir_existe = 0;
@@ -501,27 +513,32 @@ int fs_mkdir(char* directory_path){
 	if(strcmp(caminho_simul, limitador) == 0){
 		arquivo_root = 1;
 		ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
+		
 	} 
+	
 	if(arquivo_root == 0) {
 		while(str2 != NULL){
-			dir_existe = 0;
-			for(i = 0; i < 16; i++){		
+			dir_existe = 0;	
+			for(i = 0; i < 16; i++){					
+				//printf("%s\n", entrada[i].name);				
 				if(strcmp(str2, entrada[i].name) == 0 && entrada[i].dir == 1){
 					sector_dir = entrada[i].sector_start;
 					entrada = dir_atual.entries;
-					dir_existe = 1;				
+					dir_existe = 1;	
+							
 				}
-			}		
-			str2 = strtok(NULL, limitador);
-			if(dir_existe == 0){
-				printf("Diretório de destino não encontrado!\n");
-				return 1;
 			}
+			ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+			str2 = strtok(NULL, limitador);
 		}
-		ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
+		if(dir_existe == 0){
+			printf("Diretório de destino não encontrado!\n");
+			return 1;
+		}
 	}
+	
 	//Determina se há um diretório com o mesmo nome	
-	for(i = 0; i < 16; i++){
+	for(i = 0; i < 16; i++){	
 		if(strcmp(nome, entrada[i].name) == 0 && entrada[i].dir == 1){
 			printf("Um diretório com o mesmo nome foi encontrado!\n");
 			return 1;
@@ -535,16 +552,20 @@ int fs_mkdir(char* directory_path){
 			printf("Diretório raiz cheio!\n");
 			return 1;
 		}
-
 	}
 
-	sector_number = sector0.free_sectors_list;
-	sector0.free_sectors_list++;
-
+	//Ajusta parametros de entrada do arquivo	
 	entrada[i].dir = 1;
 	strcpy(entrada[i].name, nome);
 	entrada[i].sector_start = sector0.free_sectors_list;
 	entrada[i].size_bytes = 0; 	
+
+	//Inícia processo de criação do diretório
+	sector_number = sector0.free_sectors_list;
+
+	ds_read_sector(entrada[i].sector_start, &sector,SECTOR_SIZE);
+		
+	sector0.free_sectors_list = sector.next_sector;
 
 	memset(&novo_dir, 0, sizeof(novo_dir));	
 	ds_write_sector(sector_number, (void*)&novo_dir, SECTOR_SIZE);
@@ -552,14 +573,13 @@ int fs_mkdir(char* directory_path){
 	if(arquivo_root == 1){
 		root_dir.entries[i] = entrada[i];
 	}else{
-		novo_dir.entries[i] = entrada[i];
+		dir_atual.entries[i] = entrada[i];
 		ds_write_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
 	}
 	
 	ds_write_sector(1, (void*)&root_dir, SECTOR_SIZE);
-	//ds_write_sector(0, (void*)&sector0, SECTOR_SIZE);
+	ds_write_sector(0, (void*)&sector0, SECTOR_SIZE);
 	
-
 	printf("Diretório criado com sucesso! \n");
 
 	ds_stop();
@@ -573,86 +593,129 @@ int fs_mkdir(char* directory_path){
  * @return 0 on success.
  */
 int fs_rmdir(char *directory_path){
-	int ret, i, sector_dir, sector_number, k, vazio=1;
+	int ret, i, sector_dir, sector_number, k;
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
 	struct table_directory root_dir;
 	struct sector_0 sector0;
-	//struct sector_data sector;
+	struct sector_data sector;
 
 	ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
 	ds_read_sector(0, (void*)&sector0, SECTOR_SIZE);
 	
 	char *nome = strdup(basename(directory_path));
-	char *caminho_simul = strdup(dirname(directory_path));
+	char *caminho_simul = directory_path;
 	char *limitador = "/";
 	char *str1 = malloc(sizeof(caminho_simul));
 	strcpy(str1, caminho_simul);	
 	char *str2 = strtok(str1, limitador);
 	
-	if(strcmp(caminho_simul, limitador)==0){
-		printf("Não é possível exlcuir a pasta 'root'! \n");
-		return 1;	
-	}
-
-	struct table_directory dir_atual, dir;
+	
+	struct table_directory dir_ex;
 	struct file_dir_entry *entrada;
 	
 	int dir_existe = 0;
 	int arquivo_root = 0;
 	entrada = root_dir.entries;
-	
+		
 	//Procura diretório no sistema de arquivo simulado
 	if(strcmp(caminho_simul, limitador) == 0){
+		printf("O Diretório '/' root não pode ser excluído!");
+		return 1;
+	} 
+	
+	while(str2 != NULL){
+		dir_existe = 0;		
+		for(i = 0; i < 16; i++){					
+			if(strcmp(str2, entrada[i].name) == 0 && entrada[i].dir == 1){
+				sector_dir = entrada[i].sector_start;
+				entrada = dir_ex.entries;
+				dir_existe = 1;	
+			}
+		}
+		ds_read_sector(sector_dir, (void*)&dir_ex, SECTOR_SIZE);
+		str2 = strtok(NULL, limitador);
+	}
+		if(dir_existe == 0){
+			printf("Diretório de destino não encontrado!\n");
+			return 1;
+		}
+	
+	
+	//Determina se o diretório se encontra na pasta '/'
+	
+	char *caminho_simul2 = strdup(dirname(directory_path));
+	char *str3 = malloc(sizeof(caminho_simul2));
+	strcpy(str3, caminho_simul2);	
+	char *str4 = strtok(str3, limitador);
+	int j;	
+
+	struct table_directory dir_atual;
+	struct file_dir_entry *entrada2;
+
+	entrada2 = root_dir.entries;
+
+	if(strcmp(caminho_simul2, limitador) == 0){
 		arquivo_root = 1;
 		ds_read_sector(1, (void*)&root_dir, SECTOR_SIZE);
 	} 
+
 	if(arquivo_root == 0) {
-		while(str2 != NULL){
-			dir_existe = 0;
-			for(i = 0; i < 16; i++){		
-				if(strcmp(str2, entrada[i].name) == 0 && entrada[i].dir == 1){
-					sector_dir = entrada[i].sector_start;
-					entrada = dir_atual.entries;
-					dir_existe = 1;				
+		while(str4 != NULL){
+			for(j = 0; j < 16; j++){					
+				if(strcmp(str2, entrada2[j].name) == 0 && entrada2[j].dir == 1){
+					sector_number = entrada2[j].sector_start;
+					entrada2 = dir_atual.entries;
 				}
-			}		
-			str2 = strtok(NULL, limitador);
-			if(dir_existe == 0){
-				printf("Diretório de destino não encontrado!\n");
-				return 1;
 			}
-		}
-		ds_read_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
-	}
-	//Determina se há um diretório com o mesmo nome	
-	for(i = 0; i < 16; i++){
-		if(strcmp(nome, entrada[i].name) == 0 && entrada[i].dir == 1){
-			sector_number = entrada[i].sector_start;
+			ds_read_sector(sector_number, (void*)&dir_atual, SECTOR_SIZE);
+			str4 = strtok(NULL, limitador);
 		}
 	}
-
-	ds_read_sector(sector_number, (void*)&dir, SECTOR_SIZE);
-
-	/*for(k=0; k < 16; k++){
-		if(dir.entries[k].sector_start != 0){
+	
+	for(j = 0; j <16; j++){
+		if(strcmp(nome, entrada[j].name) == 0 && entrada[j].dir == 1){
+			break;
+		}
+	}
+	
+	int vazio = 1;
+	for(k=0; k < 16; k++){			
+		if(dir_ex.entries[k].sector_start != 0){
 			vazio = 0;
 		}
 	}
 
-	if(vazio == 1){*/
-		dir_atual.entries[i].dir = 0;
-		memset(dir_atual.entries[i].name, 0, strlen(dir_atual.entries[i].name));
-		dir_atual.entries[i].size_bytes = 0;
-		dir_atual.entries[i].sector_start = 0;
+	ds_read_sector(entrada[i].sector_start,(void*)&dir_ex, SECTOR_SIZE);
 
-		ds_write_sector(sector_dir, (void*)&dir_atual, SECTOR_SIZE);
-		printf("Diretório excluído com sucesso!\n");
-	/*}else{
-		printf("Diretório não está vazio! Exclua os arquivos contidos em 'nome' para prosseguir com a ação.\n");
-	}*/
+	if(vazio == 1){
+		memset(&sector, 0, SECTOR_SIZE);
+		
+		sector.next_sector = sector0.free_sectors_list;
+		ds_write_sector(entrada2[j].sector_start,(void*)&sector, SECTOR_SIZE);
+				
+		sector0.free_sectors_list = entrada[i].sector_start;
+		entrada2[j].sector_start = 0;
+
+		if(arquivo_root == 1){
+			root_dir.entries[j] = entrada2[j];
+			ds_write_sector(1, (void*)&root_dir, SECTOR_SIZE);
+		}else{
+			dir_atual.entries[j] = entrada2[j];
+			ds_write_sector(sector_number, (void*)&dir_atual, SECTOR_SIZE);
+		}
 	
+		printf("Diretório excluído com sucesso!\n");
+
+	}else{
+		printf("Diretório não está vazio! Exclua os arquivos contidos em '%s' para prosseguir com a ação.\n", nome );
+		return 1;
+	}
+	
+	
+	ds_write_sector(0, (void*)&sector0, SECTOR_SIZE);
+
 	ds_stop();
 	
 	return 0;
