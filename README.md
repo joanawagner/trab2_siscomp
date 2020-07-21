@@ -1,5 +1,9 @@
 # Trabalho 2 da disciplina de Sistemas Computacionas para Automação - UFSC Blumenau
 
+Simulação de um sistemas de arquivos FAT
+
+> Simulation of a FAT file system
+
 ## Tabela de Conteúdos 
 - [Objetivos](#objetivos)
 - [Desenvolvimento](#desenvolvimento)
@@ -25,7 +29,7 @@ espaço total suportado pelo sistema de arquivos.
 - O setor 0 contem o ponteiro para a lista de blocos livres.
 - O diretório raíz ocupa o setor 1.
 
-  Suporte para as segiuntes operações:
+ #### Suporte para as segiuntes operações:
   
   - **Inicializar**
        - exemplo: simulfs -format <tamanho em megabytes>
