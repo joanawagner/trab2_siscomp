@@ -1,8 +1,8 @@
 # Trabalho 2 da disciplina de Sistemas Computacionas para Automação - UFSC Blumenau
 
-Simulação de um sistemas de arquivos FAT
+Simulação de um sistemas de arquivos FAT simplificado.
 
-> Simulation of a FAT file system
+> Simulation of a simple FAT file system.
 
 ## Tabela de Conteúdos 
 - [Objetivos](#objetivos)
