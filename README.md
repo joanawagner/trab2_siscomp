@@ -55,7 +55,7 @@ Implementação baseada no código disponível em: https://github.com/crmoratell
   
   
 ## Implemetação
-  - O comando apagar não está funcionando corretamente.
+  - O comando apagar (-del) não está funcionando corretamente.
 
 
 
