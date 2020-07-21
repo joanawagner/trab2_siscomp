@@ -27,31 +27,31 @@ espaço total suportado pelo sistema de arquivos.
 
   Suporte para as segiuntes operações:
   
-  - Inicializar
-       exemplo: simulfs -format <tamanho em megabytes>
+  - **Inicializar**
+       - exemplo: simulfs -format <tamanho em megabytes>
  
-  - Criar (-create <arquivo original> <destino no sistema virtual>)
-       exemplo: simulfs -create /home/user/classe.xls /<caminho>/alunos.xls
+  - **Criar (-create <arquivo original> <destino no sistema virtual>)**
+       - exemplo: simulfs -create /home/user/classe.xls /<caminho>/alunos.xls
  
-  - Ler (-read <arquivo no disco> <caminho no sistema virtual> )
-       exemplo: simulfs -read /home/user/classe.xls <caminho>/alunos.xls 
+  - **Ler (-read <arquivo no disco> <caminho no sistema virtual> )**
+       - exemplo: simulfs -read /home/user/classe.xls <caminho>/alunos.xls 
  
-  - Apagar
-       exemplo: simulfs -del <caminho>/aluno.xls
+  - **Apagar**
+       - exemplo: simulfs -del <caminho>/aluno.xls
  
-  - Listar arquivos ou diretórios.
-       exemplo: simulfs -ls <caminho>
-            f paisagem.jpg    2048 bytes
-            d viagem
-            f lobo.jpg        5128 bytes 
+  - **Listar arquivos ou diretórios**
+       - exemplo: simulfs -ls <caminho>
+            + f paisagem.jpg    2048 bytes
+            + d viagem
+            + f lobo.jpg        5128 bytes 
  
-  - Criar diretório
-       exemplo: simulfs -mkdir <caminho>/aulas
+  - **Criar diretório**
+       - exemplo: simulfs -mkdir <caminho>/aulas
         
-  - Apagar diretório - Somente apaga se o diretório estiver vazio.
-       exemplo: simulfs -rmdir <caminho>/aulas
+  - **Apagar diretório - Somente apaga se o diretório estiver vazio**
+       - exemplo: simulfs -rmdir <caminho>/aulas
   
-  Implementação baseada no código disponível em: https://github.com/crmoratelli/fs_simul/
+Implementação baseada no código disponível em: https://github.com/crmoratelli/fs_simul/
   
   
 ## Implemetação
