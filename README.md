@@ -35,10 +35,10 @@ espaço total suportado pelo sistema de arquivos.
        - exemplo: simulfs -format <tamanho em megabytes>
  
   - **Criar (-create <arquivo original> <destino no sistema virtual>)**
-       - exemplo: simulfs -create /home/user/classe.xls /<caminho>/alunos.xls
+       - exemplo: simulfs -create /home/user/classe.xls /(caminho)/alunos.xls
  
   - **Ler (-read <arquivo no disco> <caminho no sistema virtual> )**
-       - exemplo: simulfs -read /home/user/classe.xls <caminho>/alunos.xls 
+       - exemplo: simulfs -read /home/user/classe.xls /(caminho)/alunos.xls 
  
   - **Apagar**
        - exemplo: simulfs -del <caminho>/aluno.xls
